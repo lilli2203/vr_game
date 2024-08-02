@@ -1,7 +1,117 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.Rendering;
+using static OVRInput;
+using SelfButton = UnityEngine.UI.Button;
+
+public class NewPanel : MonoBehaviour
+{
+    private Texture2D[] textures;
+
+    public GameObject content;
+    public GameObject panel;
+    public GameObject selectedPanelDisplay; // The GameObject to display the currently selected wall panel
+
+    private Texture2D currentTexture;
+    [SerializeField] private Shader shader;
+
+    private GameObject[] borderPanels;
+    private Vector3 originalScale;
+
+    int width = 1200;
+    int height = 13874;
+
+    public OVRHand hand;
 
     private bool isDragging = false;
     private Vector3 initialDragPosition;
     private Vector3 dragOffset;
+
+    private bool isFlipping = false;
+    private Quaternion initialFlipRotation;
+    private Quaternion flipTargetRotation = Quaternion.Euler(0, 180, 0);
+    private float flipSpeed = 2.0f;
+
+    private bool isZooming = false;
+    private float zoomFactor = 0.1f;
+    private float minScale = 0.5f;
+    private float maxScale = 2.0f;
+
+    private bool isRotating = false;
+    private float rotationSpeed = 50.0f;
+
+    void Start()
+    {
+        textures = Resources.LoadAll<Texture2D>("panels");
+        borderPanels = new GameObject[textures.Length];
+
+        // Iterate through the textures array and create panels
+        for (int i = 0; i < textures.Length; i++)
+        {
+            // Create a new panel
+            GameObject newPanel = Instantiate(panel, content.transform);
+            Image childImage = newPanel.GetComponent<Image>();
+            childImage.sprite = Sprite.Create(textures[i], new Rect(0, 0, textures[i].width, textures[i].height), Vector2.one * 0.5f);
+
+            // Assign the click function
+            SelfButton button = newPanel.GetComponent<SelfButton>();
+            int temp = i;
+            button.onClick.AddListener(() => OnPanelClick(temp));
+
+            // Ensure the border panel reference is set correctly
+            borderPanels[i] = newPanel;
+
+            // Adjust the panel's position to prevent overlap (if needed)
+            newPanel.transform.localPosition = new Vector3(0, -i * (textures[i].height + 10), 0); // Adjust spacing as needed
+        }
+
+        currentTexture = textures[0];
+        originalScale = borderPanels[0].transform.localScale; // Assuming all panels have the same original scale
+        UpdateSelectedPanelDisplay();
+    }
+
+    void Update()
+    {
+        HandleZoomInput();
+        HandleRotationInput();
+        HandleDragInput();
+        HandleFlipInput();
+        ZoomSelectedPanel();
+        RotateSelectedPanel();
+        DragSelectedPanel();
+        FlipSelectedPanel();
+    }
+
+    void OnPanelClick(int t)
+    {
+        Debug.Log(t);
+        currentTexture = textures[t];
+
+        // Update the selected panel display
+        UpdateSelectedPanelDisplay();
+
+        // Resize the selected panel and reset others
+        for (int i = 0; i < textures.Length; i++)
+        {
+            if (i == t)
+            {
+                // Enlarge the selected panel by scaling both width and height
+                borderPanels[i].transform.localScale = new Vector3(originalScale.x * 1.2f, originalScale.y * 1.2f, originalScale.z);
+            }
+            else
+            {
+                borderPanels[i].transform.localScale = originalScale; // Reset to original size
+            }
+        }
+    }
+
+    void UpdateSelectedPanelDisplay()
+    {
+        Image displayImage = selectedPanelDisplay.GetComponent<Image>();
+        displayImage.sprite = Sprite.Create(currentTexture, new Rect(0, 0, currentTexture.width, currentTexture.height), Vector2.one * 0.5f);
+    }
 
     void StartDrag()
     {
@@ -36,20 +146,6 @@
         }
     }
 
-    private bool isFlipping = false;
-    private Quaternion initialFlipRotation;
-    private Quaternion flipTargetRotation = Quaternion.Euler(0, 180, 0);
-    private float flipSpeed = 2.0f;
-
-    void FlipSelectedPanel()
-    {
-        if (isFlipping)
-        {
-            float step = flipSpeed * Time.deltaTime;
-            selectedPanelDisplay.transform.rotation = Quaternion.Lerp(selectedPanelDisplay.transform.rotation, flipTargetRotation, step);
-        }
-    }
-
     void StartFlip()
     {
         isFlipping = true;
@@ -60,6 +156,15 @@
     {
         isFlipping = false;
         selectedPanelDisplay.transform.rotation = initialFlipRotation;
+    }
+
+    void FlipSelectedPanel()
+    {
+        if (isFlipping)
+        {
+            float step = flipSpeed * Time.deltaTime;
+            selectedPanelDisplay.transform.rotation = Quaternion.Lerp(selectedPanelDisplay.transform.rotation, flipTargetRotation, step);
+        }
     }
 
     void HandleFlipInput()
@@ -75,15 +180,50 @@
         }
     }
 
-    void Update()
+    void HandleZoomInput()
     {
-        HandleZoomInput();
-        HandleRotationInput();
-        HandleDragInput();
-        HandleFlipInput();
-        ZoomSelectedPanel();
-        RotateSelectedPanel();
-        DragSelectedPanel();
-        FlipSelectedPanel();
+        if (OVRInput.Get(OVRInput.Button.PrimaryHandTrigger))
+        {
+            isZooming = true;
+        }
+        else
+        {
+            isZooming = false;
+        }
+    }
+
+    void ZoomSelectedPanel()
+    {
+        if (isZooming)
+        {
+            float scrollData;
+            scrollData = Input.GetAxis("Mouse ScrollWheel");
+
+            Vector3 newScale = selectedPanelDisplay.transform.localScale + Vector3.one * scrollData * zoomFactor;
+            newScale = new Vector3(Mathf.Clamp(newScale.x, minScale, maxScale), Mathf.Clamp(newScale.y, minScale, maxScale), newScale.z);
+
+            selectedPanelDisplay.transform.localScale = newScale;
+        }
+    }
+
+    void HandleRotationInput()
+    {
+        if (OVRInput.Get(OVRInput.Button.PrimaryThumbstick))
+        {
+            isRotating = true;
+        }
+        else
+        {
+            isRotating = false;
+        }
+    }
+
+    void RotateSelectedPanel()
+    {
+        if (isRotating)
+        {
+            float rotationInput = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick).x;
+            selectedPanelDisplay.transform.Rotate(Vector3.up, rotationInput * rotationSpeed * Time.deltaTime);
+        }
     }
 }
