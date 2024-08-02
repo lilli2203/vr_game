@@ -1,5 +1,49 @@
+using UnityEngine;
 
-   private void HandleErasingMode()
+public class DrawingController : MonoBehaviour
+{
+    [SerializeField] private Shader shader;
+    [SerializeField] private Texture texture;
+    [SerializeField] private Color currentColor = Color.white;
+    [SerializeField] private float textureScale = 1.0f;
+
+    private bool isDrawing = false;
+    private bool isErasing = false;
+    private LineRenderer lineRenderer;
+    private Vector3 previousPosition;
+
+    void Update()
+    {
+        HandleDrawingMode();
+        HandleErasingMode();
+    }
+
+    private void HandleDrawingMode()
+    {
+        if (OVRInput.GetDown(OVRInput.Button.One))
+        {
+            ToggleDrawingMode();
+        }
+
+        if (isDrawing && OVRInput.Get(OVRInput.Button.PrimaryHandTrigger))
+        {
+            Vector3 controllerPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
+            Quaternion controllerRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch);
+            Vector3 rayDirection = controllerRotation * Vector3.forward;
+
+            if (Physics.Raycast(controllerPosition, rayDirection, out RaycastHit hit))
+            {
+                GameObject hitObject = hit.collider.gameObject;
+
+                if (hitObject.CompareTag("Drawable"))
+                {
+                    DrawLine(hit.point);
+                }
+            }
+        }
+    }
+
+    private void HandleErasingMode()
     {
         if (OVRInput.GetDown(OVRInput.Button.Two))
         {
@@ -27,7 +71,13 @@
     private void ToggleDrawingMode()
     {
         isDrawing = !isDrawing;
-@@ -118,11 +162,25 @@ private void ToggleDrawingMode()
+        if (isDrawing)
+        {
+            SetTextMessage("Drawing Mode Activated");
+        }
+        else
+        {
+            SetTextMessage("Drawing Mode Deactivated");
         }
     }
 
@@ -48,14 +98,32 @@
     {
         Material material = new Material(shader)
         {
-            mainTexture = texture
             mainTexture = texture,
             color = currentColor
         };
         material.SetFloat("_Cull", (float)CullMode.Off);
+        hitPlane.GetComponent<Renderer>().material = material;
+    }
 
-@@ -150,6 +208,15 @@ private void DrawLine()
-        lineRenderer.SetPositions(drawingPoints.ToArray());
+    private void DrawLine(Vector3 newPoint)
+    {
+        if (lineRenderer == null)
+        {
+            GameObject lineObject = new GameObject("Line");
+            lineRenderer = lineObject.AddComponent<LineRenderer>();
+            lineRenderer.material = new Material(shader)
+            {
+                mainTexture = texture,
+                color = currentColor
+            };
+            lineRenderer.positionCount = 0;
+            lineRenderer.startWidth = 0.05f;
+            lineRenderer.endWidth = 0.05f;
+            lineRenderer.useWorldSpace = true;
+        }
+
+        lineRenderer.positionCount++;
+        lineRenderer.SetPosition(lineRenderer.positionCount - 1, newPoint);
     }
 
     private void EraseDrawing(GameObject hitObject)
@@ -70,3 +138,26 @@
     public void IncreaseTextureScale()
     {
         textureScale += 0.1f;
+        UpdateLineMaterial();
+    }
+
+    public void DecreaseTextureScale()
+    {
+        textureScale = Mathf.Max(0.1f, textureScale - 0.1f);
+        UpdateLineMaterial();
+    }
+
+    private void UpdateLineMaterial()
+    {
+        if (lineRenderer != null)
+        {
+            lineRenderer.material.mainTextureScale = new Vector2(textureScale, textureScale);
+        }
+    }
+
+    private void SetTextMessage(string message)
+    {
+        // Assuming there's a UI Text element to display messages to the user
+        Debug.Log(message);
+    }
+}
