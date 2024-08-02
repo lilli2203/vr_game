@@ -1,0 +1,68 @@
+private void HandleUndoRedo()
+    {
+        if (OVRInput.GetDown(OVRInput.Button.One))
+        {
+            UndoLastAction();
+        }
+
+        if (OVRInput.GetDown(OVRInput.Button.Two))
+        {
+            RedoLastAction();
+        }
+    }
+
+    private void UndoLastAction()
+    {
+        if (undoStack.Count > 0)
+        {
+            string panelName = undoStack.Pop();
+            redoStack.Push(panelName);
+
+            if (PlayerPrefs.HasKey(panelName))
+            {
+                PlayerPrefs.DeleteKey(panelName);
+            }
+
+            foreach (GameObject hitPlane in GameObject.FindGameObjectsWithTag("WALL_FACE"))
+            {
+                if (hitPlane.transform.parent.name == panelName)
+                {
+                    hitPlane.GetComponentInParent<MeshRenderer>().material = null;
+                    savedPanels.Remove(panelName);
+                    UpdateStatusText("Undid texture application for " + panelName);
+                    break;
+                }
+            }
+        }
+        else
+        {
+            UpdateStatusText("No actions to undo.");
+        }
+    }
+
+    private void RedoLastAction()
+    {
+        if (redoStack.Count > 0)
+        {
+            string panelName = redoStack.Pop();
+            if (savedPanels.ContainsKey(panelName))
+            {
+                Texture2D texture = savedPanels[panelName];
+                foreach (GameObject hitPlane in GameObject.FindGameObjectsWithTag("WALL_FACE"))
+                {
+                    if (hitPlane.transform.parent.name == panelName)
+                    {
+                        ApplySavedTexture(hitPlane, texture);
+                        undoStack.Push(panelName);
+                        UpdateStatusText("Redid texture application for " + panelName);
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            UpdateStatusText("No actions to redo.");
+        }
+    }
+}
