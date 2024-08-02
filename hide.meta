@@ -1,0 +1,106 @@
+
+        public static void SetVisibility(bool visible)
+        {
+            if (_canvas is null) return;
+            _canvas.enabled = visible;
+        }
+        
+
+        public static void ToggleVisibility()
+        {
+            if (_canvas is null) return;
+            _canvas.enabled = !_canvas.enabled;
+        }
+        
+
+        public static void SetStatus(string message)
+        {
+            if (_statusText is null) return;
+            _statusText.text = (message);
+        }
+        
+
+        private static void TrimText()
+        {
+            string[] lines = _debugText.text.Split('\n');
+            
+
+            if (lines.Length > MAX_LINES)
+            {
+                _debugText.text = string.Join("\n", lines, lines.Length - MAX_LINES, MAX_LINES);
+            }
+        }
+
+
+        public void ToggleMemoryUsageDisplay()
+        {
+            _showMemoryUsage = !_showMemoryUsage;
+            if (!_showMemoryUsage)
+            {
+                _memoryText.text = "";
+            }
+        }
+
+        public static void LogCustomMessage(string message, LogType type)
+        {
+            switch (type)
+            {
+                case LogType.Error:
+                    Debug.LogError(message);
+                    break;
+                case LogType.Assert:
+                    Debug.LogAssertion(message);
+                    break;
+                case LogType.Warning:
+                    Debug.LogWarning(message);
+                    break;
+                case LogType.Log:
+                default:
+                    Debug.Log(message);
+                    break;
+            }
+        }
+
+        public static void ClearAllLogs()
+        {
+            if (_debugText is null) return;
+            _debugText.text = "";
+            _statusText.text = "";
+        }
+
+        public void ShowFpsGraph()
+        {
+            Debug.Log("FPS Graph feature not implemented yet.");
+        }
+
+        public static void LogPerformanceData()
+        {
+            float frameTime = Time.deltaTime * 1000f;
+            float fps = 1.0f / Time.deltaTime;
+            Debug.Log($"Frame Time: {frameTime:F2} ms, FPS: {fps:F2}");
+        }
+
+        public static void SaveLogsToFile(string fileName)
+        {
+            string path = $"{Application.persistentDataPath}/{fileName}.txt";
+            System.IO.File.WriteAllText(path, _debugText.text);
+            Debug.Log($"Logs saved to {path}");
+        }
+
+        public static void ClearMemoryStats()
+        {
+            if (_memoryText is null) return;
+            _maxMemoryUsage = 0;
+            _averageMemoryUsage = 0;
+            _memorySamples = 0;
+            _memoryText.text = "Memory stats cleared";
+        }
+
+        public static void UpdateStatusWithTimestamp(string message)
+        {
+            string timestamp = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            _statusText.text = $"[{timestamp}] {message}";
+        }
+    }
+}
+}
