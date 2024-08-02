@@ -1,0 +1,72 @@
+
+   private void HandleErasingMode()
+    {
+        if (OVRInput.GetDown(OVRInput.Button.Two))
+        {
+            ToggleErasingMode();
+        }
+
+        if (isErasing && OVRInput.Get(OVRInput.Button.PrimaryHandTrigger))
+        {
+            Vector3 controllerPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
+            Quaternion controllerRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch);
+            Vector3 rayDirection = controllerRotation * Vector3.forward;
+
+            if (Physics.Raycast(controllerPosition, rayDirection, out RaycastHit hit))
+            {
+                GameObject hitObject = hit.collider.gameObject;
+
+                if (hitObject.CompareTag("Drawable"))
+                {
+                    EraseDrawing(hitObject);
+                }
+            }
+        }
+    }
+
+    private void ToggleDrawingMode()
+    {
+        isDrawing = !isDrawing;
+@@ -118,11 +162,25 @@ private void ToggleDrawingMode()
+        }
+    }
+
+    private void ToggleErasingMode()
+    {
+        isErasing = !isErasing;
+        if (isErasing)
+        {
+            SetTextMessage("Erasing Mode Activated");
+        }
+        else
+        {
+            SetTextMessage("Erasing Mode Deactivated");
+        }
+    }
+
+    private void ApplyMaterialToPlane(GameObject hitPlane)
+    {
+        Material material = new Material(shader)
+        {
+            mainTexture = texture
+            mainTexture = texture,
+            color = currentColor
+        };
+        material.SetFloat("_Cull", (float)CullMode.Off);
+
+@@ -150,6 +208,15 @@ private void DrawLine()
+        lineRenderer.SetPositions(drawingPoints.ToArray());
+    }
+
+    private void EraseDrawing(GameObject hitObject)
+    {
+        LineRenderer hitLineRenderer = hitObject.GetComponent<LineRenderer>();
+        if (hitLineRenderer != null)
+        {
+            hitLineRenderer.positionCount = 0;
+        }
+    }
+
+    public void IncreaseTextureScale()
+    {
+        textureScale += 0.1f;
