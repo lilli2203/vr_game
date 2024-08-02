@@ -13,6 +13,7 @@ public class WallPanelManager : MonoBehaviour
     private Stack<string> redoStack = new Stack<string>();
 
     public TMP_Text statusText;
+    public Texture2D currentTexture;
 
     void Start()
     {
@@ -27,6 +28,7 @@ public class WallPanelManager : MonoBehaviour
             CheckForWallPointing();
         }
         HandleUndoRedo();
+        HandleSaveLoadPanelStates();
     }
 
     private void LoadTextures()
@@ -66,6 +68,21 @@ public class WallPanelManager : MonoBehaviour
             PlayerPrefs.SetString(panel.Key, Convert.ToBase64String(panel.Value.EncodeToPNG()));
         }
         PlayerPrefs.Save();
+    }
+
+    private void LoadPanelStates()
+    {
+        foreach (string key in PlayerPrefs.Keys)
+        {
+            if (PlayerPrefs.HasKey(key))
+            {
+                string base64 = PlayerPrefs.GetString(key);
+                byte[] bytes = System.Convert.FromBase64String(base64);
+                Texture2D texture = new Texture2D(2, 2);
+                texture.LoadImage(bytes);
+                savedPanels[key] = texture;
+            }
+        }
     }
 
     private void UpdateStatusText(string message)
@@ -154,5 +171,50 @@ public class WallPanelManager : MonoBehaviour
 
         MeshRenderer planeRenderer = hitPlane.GetComponentInParent<MeshRenderer>();
         planeRenderer.material = material;
+    }
+
+    private void HandleSaveLoadPanelStates()
+    {
+        if (OVRInput.GetDown(OVRInput.Button.Start))
+        {
+            SavePanelStates();
+            UpdateStatusText("Panel states saved.");
+        }
+
+        if (OVRInput.GetDown(OVRInput.Button.Select))
+        {
+            LoadPanelStates();
+            ApplyLoadedPanelStates();
+            UpdateStatusText("Panel states loaded.");
+        }
+    }
+
+    private void ApplyLoadedPanelStates()
+    {
+        foreach (var panel in savedPanels)
+        {
+            foreach (GameObject hitPlane in GameObject.FindGameObjectsWithTag("WALL_FACE"))
+            {
+                if (hitPlane.transform.parent.name == panel.Key)
+                {
+                    ApplySavedTexture(hitPlane, panel.Value);
+                    break;
+                }
+            }
+        }
+    }
+
+    public void ClearAllPanels()
+    {
+        foreach (GameObject hitPlane in GameObject.FindGameObjectsWithTag("WALL_FACE"))
+        {
+            hitPlane.GetComponentInParent<MeshRenderer>().material = null;
+        }
+
+        savedPanels.Clear();
+        undoStack.Clear();
+        redoStack.Clear();
+        PlayerPrefs.DeleteAll();
+        UpdateStatusText("All panels cleared.");
     }
 }
